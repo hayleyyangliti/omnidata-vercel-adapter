@@ -3,11 +3,13 @@ FastAPI 主应用模块
 """
 
 import asyncio
+import os
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -222,6 +224,25 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Vercel test deployment: protect crawler APIs with a server-to-server token.
+_api_token = os.getenv("OMNIDATA_API_TOKEN", "").strip()
+
+
+@app.middleware("http")
+async def protect_api_routes(request: Request, call_next):
+    """Require a token before accessing OmniData's /api routes."""
+    if request.method == "OPTIONS" or not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    if not _api_token:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "OMNIDATA_API_TOKEN is not configured"},
+        )
+    if request.headers.get("x-omnidata-token") != _api_token:
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
+
 
 # 注册全局异常处理器
 app.add_exception_handler(OmniDataError, omnidata_exception_handler)
