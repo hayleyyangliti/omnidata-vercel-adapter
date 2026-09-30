@@ -1,0 +1,9 @@
+# Vercel container entry for the test-only OmniData adapter.
+# The upstream image includes FastAPI, Chromium, Redis, Nginx and Supervisor.
+FROM noimankdocker/omnidata:latest
+
+ENV TZ=Asia/Shanghai \
+    OMNIDATA_BROWSER__HEADLESS=true \
+    PORT=80
+
+EXPOSE 80
